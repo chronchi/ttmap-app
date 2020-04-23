@@ -374,6 +374,12 @@ def get_ttmap_from_inputs(event):
     grid_spec[1][1][0] = graph_rpy2
     grid_spec[1][1][1][2] = hv.Table(data_table).opts(width=300) 
 
+    grid_spec[1][3] = ('Significant Components', pn.Column(query_box_deviated_genes, query_genes,
+                                   hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
+                                   sizing_mode = 'stretch_both'))
+
+    grid_spec[1][3].sizing_mode = 'stretch_both'
+
 def query_columns(event):
     
     name_of_column = query_dropdown.value 
@@ -436,6 +442,18 @@ outlier_parameter = pn.widgets.TextInput(name = 'Outlier parameter', value = '0'
 test_samples = pn.widgets.TextInput(name = 'Test samples', value = '', margin=margin_size)
 # widget for the button to run the web app
 button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
+# widget explaining what alpha value, outlier parameter and deviation are
+explanation_parameters = pn.pane.Markdown(""" 
+**Alpha value**: controls the noise when calculating the mismatch distance between
+test samples.
+
+**Outlier Parameter**: controls how far away the control sample should be from
+the median in its batch. 
+
+**Deviation**: the colorbar Deviation in the graph represents the 
+average deviation component of the samples in each cluster. 
+""")
+
 
 # widget to query for sample or cluster information
 query_box = pn.widgets.TextInput(name  = 'Search by sample or cluster number', 
@@ -596,10 +614,13 @@ grid_spec = pn.Row(pn.Column(
                                   background='#f0f0f0'),
                         pn.Spacer(height=pn_spacer),
                         pn.Column(button_to_calculate, width = width_first_column),
+                        pn.Spacer(height=pn_spacer),
+                        pn.Column(explanation_parameters, width = width_first_column,
+                                  background='#f0f0f0'),
                         width = 300),
                      final_display,
                      sizing_mode='stretch_both'
                   )
 
-grid_spec.servable(title='TTMap')
+grid_spec.servable(title='ttmap')
 
