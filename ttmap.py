@@ -294,7 +294,7 @@ def get_outlier_analysis(batches, output_directory, filename='ttmap'):
                                                                         xlabel = '% of corrected genes',
                                                                        )
         
-        index_column = np.unravel_index(counter, [length_in_grid, 2])
+        index_column = np.unravel_index(counter, (length_in_grid, 3))
 
         grid_corrected_genes[index_column[0], index_column[1]] = histogram_frequencies
     
