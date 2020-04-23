@@ -444,6 +444,8 @@ test_samples = pn.widgets.TextInput(name = 'Test samples', value = '', margin=ma
 button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
 # widget explaining what alpha value, outlier parameter and deviation are
 explanation_parameters = pn.pane.Markdown(""" 
+### Glossary  
+
 **Alpha value**: controls the noise when calculating the mismatch distance between
 test samples.
 
