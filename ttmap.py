@@ -372,13 +372,36 @@ def get_ttmap_from_inputs(event):
     
     grid_spec[1][2] = ('Outlier Analysis', outlier_analysis)
     grid_spec[1][1][0] = graph_rpy2
-    grid_spec[1][1][1][2] = hv.Table(data_table).opts(width=300) 
 
-    grid_spec[1][3] = ('Significant Components', pn.Column(query_box_deviated_genes, query_genes,
-                                   hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
+
+    # change button and append table to column of queries and samples
+    filename = 'samples_table.csv'
+    data_table.to_csv(output_directory + '/' + filename)
+    download_table_graph_button = pn.widgets.FileDownload(label = 'Download', filename = 'samples_table.csv', 
+                                                          button_type = 'primary',
+                                                          margin=margin_size, 
+                                                          file = os.path.join(output_directory, filename))
+    grid_spec[1][1][1][2] = download_table_graph_button
+    grid_spec[1][1][1][3] = hv.Table(data_table).opts(width=300) 
+
+    grid_spec[1][3] = ('Significant Components', 
+                        pn.Column(query_box_deviated_genes, 
+                                  query_genes, 
+                                  download_significant_components_button,
+                                  hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
                                    sizing_mode = 'stretch_both'))
 
     grid_spec[1][3].sizing_mode = 'stretch_both'
+
+def save_to_file(df):
+    filename = 'samples_table.csv'
+    df.to_csv(output_directory + '/' + filename)
+    download_table_graph_button = pn.widgets.FileDownload(label = 'Download', filename = 'samples_table.csv',
+                                                          button_type = 'primary',
+                                                          margin=margin_size,
+                                                          file = os.path.join(output_directory, filename))
+    grid_spec[1][1][1][2] = download_table_graph_button
+
 
 def query_columns(event):
     
@@ -389,7 +412,9 @@ def query_columns(event):
     s = s[s.str.contains('|'.join([text]))]
     rows_of_text = list(s.index)
     
-    grid_spec[1][1][1][2] = hv.Table(data_table.iloc[rows_of_text]).opts(width=300)
+    sub_data_table = data_table.iloc[rows_of_text] 
+    save_to_file(sub_data_table)
+    grid_spec[1][1][1][3] = hv.Table(sub_data_table).opts(width=300)
 
 def fix_size_table(plot, element):
     
@@ -423,25 +448,58 @@ def query_clusters(event):
         # select only the rows containing the genes
         true_rows = list(significant_genes_table['Genes'].str.contains('|'.join(genes)))
 
-        # query genes
-        grid_spec[1][3][2] = hv.Table(significant_genes_table.iloc[true_rows, :]).opts(width=1000, hooks=[fix_size_table])
-        grid_spec[1][3].sizing_mode = 'stretch_both'
+        filename = 'significant_components_' + cluster + '.csv'
 
+        significant_genes_table.iloc[true_rows, :].to_csv(output_directory + '/' + filename)
+
+        # query genes
+        # download the cluster associated table of significant components
+        download_significant_components_button = pn.widgets.FileDownload(filename = filename, 
+                                                                 button_type = 'primary',
+                                                                 file=os.path.join(output_directory, filename),
+                                                                 label = 'Download') 
+
+        grid_spec[1][3][2] = download_significant_components_button
+        grid_spec[1][3][3] = hv.Table(significant_genes_table.iloc[true_rows, :]).opts(width=1000, hooks=[fix_size_table])
+        grid_spec[1][3].sizing_mode = 'stretch_both'
+        
 margin_size = 5
 # widgets for the first column
 # widget to load matrix
 load_input  = pn.widgets.FileInput(name = 'Dataset input', margin=margin_size)
+
 # widget to type the batches
 which_batch = pn.widgets.TextInput(name = 'Batch names',
                                    value = '', margin=margin_size)
 # widget to type the alpha value
 alpha_value = pn.widgets.TextInput(name = 'Alpha value', value = '1.0', margin=margin_size)
+
 # widget to type the output parameter
 outlier_parameter = pn.widgets.TextInput(name = 'Outlier parameter', value = '0', margin=margin_size)
+
 # widget to type the subselected test sample dataset
 test_samples = pn.widgets.TextInput(name = 'Test samples', value = '', margin=margin_size)
+
+
+# widget to save the table of significant components of corresponding cluster
+data_to_save = pd.DataFrame({})
+sio = StringIO()
+data_to_save.to_csv(sio)
+sio.seek(0)
+download_significant_components_button = pn.widgets.FileDownload(filename = 'significant_components.csv', 
+                                                                 button_type = 'primary',
+                                                                 file = sio, label = 'Download') 
+
+data_to_save = pd.DataFrame({})
+sio = StringIO()
+data_to_save.to_csv(sio)
+sio.seek(0)
+download_table_graph_button = pn.widgets.FileDownload(filename = 'samples_table.csv', button_type = 'primary', 
+                                              margin=margin_size, file = sio, label = 'Download')
+
 # widget for the button to run the web app
 button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
+
 # widget explaining what alpha value, outlier parameter and deviation are
 explanation_parameters = pn.pane.Markdown(""" 
 ### Glossary  
@@ -570,23 +628,35 @@ that is in the corresponding node of the graph. Also, you can type a list of gen
 by comma, e.g., "GREB1, BRCA1". Note that the genes should be the same as in the matrix you provided
 at the beginning of the analysis.
 
-## Future additions
+## Download of Data
 ---
-- Download all data produced
+
+You can download the samples table and the significant components table by clicking the respective
+buttons 'Download'. 
+
+In every image there is floppy disk icon that you can press to save it.
+ 
+## Issues and questions 
+---
+If you have any issue or questions, please either raise an 
+[issue on github](https://github.com/chronchi/ttmap-app/issues) or 
+[mail me](mailto:carlos.ronchi@epfl.ch)
+ 
 """
 
 how_to_use_it = pn.Column(pn.pane.Markdown(how_to_use, sizing_mode='stretch_both'),
                           sizing_mode='stretch_both', scroll = True)
 
-dataframe_and_query = pn.Column(query_dropdown, query_box, hv.Table(pd.DataFrame({})).opts(width=300,
-                                                                                           ))
+dataframe_and_query = pn.Column(query_dropdown, query_box, download_table_graph_button,
+                                hv.Table(pd.DataFrame({})).opts(width=300)
+                               )
 
 final_display = pn.Row(hv.Graph(()).opts(xaxis=None, yaxis=None, responsive=True),
                        dataframe_and_query,
                        sizing_mode = 'stretch_both'
                       )
 
-significant_genes_analysis = pn.Column(query_box_deviated_genes, query_genes,
+significant_genes_analysis = pn.Column(query_box_deviated_genes, query_genes, download_significant_components_button,
                                        hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
                                       sizing_mode = 'stretch_both')
 
