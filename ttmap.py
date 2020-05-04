@@ -51,39 +51,60 @@ def run_simpleTTMap(dataset,
     with localconverter(ro.default_converter + pandas2ri.converter):
         r_dataset = ro.conversion.py2rpy(dataset)
 
-    col_names = [col_name[1:] if 'X' == col_name[0] else col_name for col_name in list(robjects.r['colnames'](r_dataset))]
-    r_dataset.colnames = rpy2.robjects.StrVector(col_names)
+    #col_names = [col_name[1:] if 'X' == col_name[0] else col_name for col_name in list(robjects.r['colnames'](r_dataset))]
+    #r_dataset.colnames = rpy2.robjects.StrVector(col_names)
     
     simp_ttmap_output = simpletTTMap.simple_ttmap(r_dataset,
                                                     output_directory  = output_directory,
                                                     alpha             = alpha,
                                                     batches           = batches,
                                                     test_samples      = test_samples,
-                                                    outlier_parameter = outlier_value
+                                                     outlier_parameter = outlier_value
                                                 )
 
     py_simple_ttmap_output = dict(zip(simp_ttmap_output.names, simp_ttmap_output))
 
     samples_name_rpy2 = list(py_simple_ttmap_output['samples_name'].columns[3:])
+    samples_name = [sample_name[1:] if 'X' == sample_name[0] else sample_name for sample_name in samples_name_rpy2]
+    samples_name_rpy2 = samples_name   
+ 
+    print(samples_name_rpy2)
 
     ttmap_output_rpy2 = dict(zip(py_simple_ttmap_output['ttmap_gtlmap'].names, map(list, list(py_simple_ttmap_output['ttmap_gtlmap']))))
 
     for intervals in ttmap_output_rpy2:
         for counter, clusters in enumerate(ttmap_output_rpy2[intervals]):
+            # convert the name of the samples in the clusters
+            clusters_correct_names = []
+            for cluster in list(clusters):
+                correct_names = [sample_name[1:] if 'X' == sample_name[0] \
+                                 else sample_name for sample_name in cluster]
+                clusters_correct_names.append(correct_names)
             ttmap_output_rpy2[intervals][counter] = list(clusters)
     
+    print(ttmap_output_rpy2)
+
     deviation_components_rpy2 = py_simple_ttmap_output['ttmap_hda'] 
 
     deviation_components_rpy2 = dict(zip(deviation_components_rpy2.names, 
-                                         map(list,list(deviation_components_rpy2))))
+                                         list(deviation_components_rpy2)))
 
     total_deviations_rpy2 = deviation_components_rpy2['m']
+    hda_matrix = deviation_components_rpy2['Dc.Dmat']
+    print(hda_matrix) 
+    print(total_deviations_rpy2)
+
+    ttmap_hda_deviation = py_simple_ttmap_output['absolute_deviations']
+    print(ttmap_hda_deviation)
 
     deviation_by_sample_rpy2 = {}
 
-    for counter, sample_name in enumerate(samples_name_rpy2):
-        deviation_by_sample_rpy2[sample_name] = total_deviations_rpy2[counter]
+    for sample_name in samples_name:
+        deviation_by_sample_rpy2[sample_name] = ttmap_hda_deviation.loc[sample_name + '.Dis', 
+                                                                        'total_absolute_deviation']
 
+    print(deviation_by_sample_rpy2)
+    
     return simple_ttmap_output(ttmap_output_rpy2, deviation_by_sample_rpy2, samples_name_rpy2, total_deviations_rpy2)
 
 
@@ -332,18 +353,18 @@ def get_ttmap_from_inputs(event):
     if test_samples.value == '':
         test_samples_names = []
     else:
-        test_samples_names = test_samples.value.split(',')
-    
+        test_samples_names = test_samples.value.split(',')    
+
     global output_directory
     output_directory = tempfile.mkdtemp()
         
     sttmap_output = run_simpleTTMap(dataset,
-                                                    alpha=alpha,
-                                                    batches=batches,
-                                                    test_samples=test_samples_names,
-                                                    outlier_value=outlier_value,
-                                                    output_directory=output_directory
-                                                   )
+                                    alpha=alpha,
+                                    batches=batches,
+                                    test_samples=test_samples_names,
+                                    outlier_value=outlier_value,
+                                    output_directory=output_directory
+                                   )
     ttmap_output = sttmap_output.ttmap_output
     deviation_by_sample = sttmap_output.deviation_by_sample
     sample_names = sttmap_output.samples_name
@@ -372,31 +393,46 @@ def get_ttmap_from_inputs(event):
     
     grid_spec[1][2] = ('Outlier Analysis', outlier_analysis)
     grid_spec[1][1][0] = graph_rpy2
-
+    grid_spec[1][1][0].sizing_mode='stretch_both'
 
     # change button and append table to column of queries and samples
     filename = 'samples_table.csv'
     data_table.to_csv(output_directory + '/' + filename)
-    download_table_graph_button = pn.widgets.FileDownload(label = 'Download', filename = 'samples_table.csv', 
+    download_table_graph_button = pn.widgets.FileDownload(label = 'Download table', filename = 'samples_table.csv', 
                                                           button_type = 'primary',
                                                           margin=margin_size, 
                                                           file = os.path.join(output_directory, filename))
     grid_spec[1][1][1][2] = download_table_graph_button
-    grid_spec[1][1][1][3] = hv.Table(data_table).opts(width=300) 
+    grid_spec[1][1][1][3] = hv.Table(data_table).opts(width=300, hooks=[fix_size_table]) 
+
+    # save graph and table into a html file
+    filename = 'graph.html'
+    graph_and_table = pn.Row(grid_spec[1][1][0], grid_spec[1][1][1][3])
+    graph_and_table.save(os.path.join(output_directory, filename))
+
+    # create download graph button to download the html of the graph and table
+    download_graph_button = pn.widgets.FileDownload(label = 'Download Graph',
+                                                   filename = 'graph.html',
+                                                   margin=margin_size,
+                                                   file = os.path.join(output_directory, filename),
+                                                   button_type = 'primary'
+                                                   )
+    # add to the grid
+    grid_spec[1][1][0].append(download_graph_button)                                                          
 
     grid_spec[1][3] = ('Significant Components', 
                         pn.Column(query_box_deviated_genes, 
                                   query_genes, 
                                   download_significant_components_button,
                                   hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
-                                   sizing_mode = 'stretch_both'))
+                                  sizing_mode = 'stretch_both'))
 
     grid_spec[1][3].sizing_mode = 'stretch_both'
 
 def save_to_file(df):
     filename = 'samples_table.csv'
     df.to_csv(output_directory + '/' + filename)
-    download_table_graph_button = pn.widgets.FileDownload(label = 'Download', filename = 'samples_table.csv',
+    download_table_graph_button = pn.widgets.FileDownload(label = 'Download table', filename = 'samples_table.csv',
                                                           button_type = 'primary',
                                                           margin=margin_size,
                                                           file = os.path.join(output_directory, filename))
@@ -418,7 +454,7 @@ def query_columns(event):
 
 def fix_size_table(plot, element):
     
-    plot.handles['table'].sizing_mode = 'stretch_width'
+    plot.handles['table'].sizing_mode = 'stretch_both'
     
 def query_clusters(event):
     
@@ -457,10 +493,10 @@ def query_clusters(event):
         download_significant_components_button = pn.widgets.FileDownload(filename = filename, 
                                                                  button_type = 'primary',
                                                                  file=os.path.join(output_directory, filename),
-                                                                 label = 'Download') 
+                                                                 label = 'Download table') 
 
         grid_spec[1][3][2] = download_significant_components_button
-        grid_spec[1][3][3] = hv.Table(significant_genes_table.iloc[true_rows, :]).opts(width=1000, hooks=[fix_size_table])
+        grid_spec[1][3][3] = hv.Table(significant_genes_table.iloc[true_rows, :]).opts(hooks=[fix_size_table])
         grid_spec[1][3].sizing_mode = 'stretch_both'
         
 margin_size = 5
@@ -488,14 +524,14 @@ data_to_save.to_csv(sio)
 sio.seek(0)
 download_significant_components_button = pn.widgets.FileDownload(filename = 'significant_components.csv', 
                                                                  button_type = 'primary',
-                                                                 file = sio, label = 'Download') 
+                                                                 file = sio, label = 'Download table') 
 
 data_to_save = pd.DataFrame({})
 sio = StringIO()
 data_to_save.to_csv(sio)
 sio.seek(0)
 download_table_graph_button = pn.widgets.FileDownload(filename = 'samples_table.csv', button_type = 'primary', 
-                                              margin=margin_size, file = sio, label = 'Download')
+                                              margin=margin_size, file = sio, label = 'Download table')
 
 # widget for the button to run the web app
 button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
@@ -562,6 +598,15 @@ This matrix should follow some specific rules:
 - The samples representing the control group should have CTRL in its name. It can be lower case too. 
 - The batches should be identified in the colum names also. If Sample1 is from batch X and Sample2 
   is from batch Y, their names should contain X and Y respectively. 
+
+Also, the matrix should be comma separated. Below is an example.
+
+,"sample1","sample2"
+"Gene1",0.3450,1.1231
+"Gene2",2.1231,2.3523
+
+It is also suggested that the samples names don't start with a number or other non syntatic
+valid name as defined by R [here](https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html).
 
 ### Batch names
 The batches need to be specified if you want to batch correct. If you have 2 batches, X and Y,
@@ -648,7 +693,8 @@ how_to_use_it = pn.Column(pn.pane.Markdown(how_to_use, sizing_mode='stretch_both
                           sizing_mode='stretch_both', scroll = True)
 
 dataframe_and_query = pn.Column(query_dropdown, query_box, download_table_graph_button,
-                                hv.Table(pd.DataFrame({})).opts(width=300)
+                                hv.Table(pd.DataFrame({})).opts(width=300),
+                                width = 300,
                                )
 
 final_display = pn.Row(hv.Graph(()).opts(xaxis=None, yaxis=None, responsive=True),
