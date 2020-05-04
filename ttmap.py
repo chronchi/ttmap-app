@@ -68,7 +68,6 @@ def run_simpleTTMap(dataset,
     samples_name = [sample_name[1:] if 'X' == sample_name[0] else sample_name for sample_name in samples_name_rpy2]
     samples_name_rpy2 = samples_name   
  
-    print(samples_name_rpy2)
 
     ttmap_output_rpy2 = dict(zip(py_simple_ttmap_output['ttmap_gtlmap'].names, map(list, list(py_simple_ttmap_output['ttmap_gtlmap']))))
 
@@ -82,7 +81,6 @@ def run_simpleTTMap(dataset,
                 clusters_correct_names.append(correct_names)
             ttmap_output_rpy2[intervals][counter] = list(clusters)
     
-    print(ttmap_output_rpy2)
 
     deviation_components_rpy2 = py_simple_ttmap_output['ttmap_hda'] 
 
@@ -91,11 +89,8 @@ def run_simpleTTMap(dataset,
 
     total_deviations_rpy2 = deviation_components_rpy2['m']
     hda_matrix = deviation_components_rpy2['Dc.Dmat']
-    print(hda_matrix) 
-    print(total_deviations_rpy2)
 
     ttmap_hda_deviation = py_simple_ttmap_output['absolute_deviations']
-    print(ttmap_hda_deviation)
 
     deviation_by_sample_rpy2 = {}
 
@@ -103,7 +98,6 @@ def run_simpleTTMap(dataset,
         deviation_by_sample_rpy2[sample_name] = ttmap_hda_deviation.loc[sample_name + '.Dis', 
                                                                         'total_absolute_deviation']
 
-    print(deviation_by_sample_rpy2)
     
     return simple_ttmap_output(ttmap_output_rpy2, deviation_by_sample_rpy2, samples_name_rpy2, total_deviations_rpy2)
 
@@ -418,7 +412,7 @@ def get_ttmap_from_inputs(event):
                                                    button_type = 'primary'
                                                    )
     # add to the grid
-    grid_spec[1][1][0].append(download_graph_button)                                                          
+    grid_spec[1][1][1].extend([download_graph_button])
 
     grid_spec[1][3] = ('Significant Components', 
                         pn.Column(query_box_deviated_genes, 
