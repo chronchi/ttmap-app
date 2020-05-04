@@ -596,7 +596,9 @@ This matrix should follow some specific rules:
 Also, the matrix should be comma separated. Below is an example.
 
 ,"sample1","sample2"
+
 "Gene1",0.3450,1.1231
+
 "Gene2",2.1231,2.3523
 
 It is also suggested that the samples names don't start with a number or other non syntatic
