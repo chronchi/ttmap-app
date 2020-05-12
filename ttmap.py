@@ -1,3 +1,7 @@
+from bokeh.settings import settings
+settings.resources = 'cdn'
+settings.resources = 'inline'
+
 import numpy as np
 import pandas as pd
 import os, sys
@@ -395,8 +399,9 @@ def get_ttmap_from_inputs(event):
     download_table_graph_button = pn.widgets.FileDownload(label = 'Download table', filename = 'samples_table.csv', 
                                                           button_type = 'primary',
                                                           margin=margin_size, 
-                                                          file = os.path.join(output_directory, filename))
-    grid_spec[1][1][1][2] = download_table_graph_button
+                                                          file = os.path.join(output_directory, filename),
+                                                          width=140)
+    grid_spec[1][1][1][2][0] = download_table_graph_button
     grid_spec[1][1][1][3] = hv.Table(data_table).opts(width=300, hooks=[fix_size_table]) 
 
     # save graph and table into a html file
@@ -405,14 +410,15 @@ def get_ttmap_from_inputs(event):
     graph_and_table.save(os.path.join(output_directory, filename))
 
     # create download graph button to download the html of the graph and table
-    download_graph_button = pn.widgets.FileDownload(label = 'Download Graph',
+    download_graph_button = pn.widgets.FileDownload(label = 'Download graph',
                                                    filename = 'graph.html',
                                                    margin=margin_size,
                                                    file = os.path.join(output_directory, filename),
-                                                   button_type = 'primary'
+                                                   button_type = 'primary',
+                                                   width=140
                                                    )
     # add to the grid
-    grid_spec[1][1][1].extend([download_graph_button])
+    grid_spec[1][1][1][2][1] = download_graph_button
 
     grid_spec[1][3] = ('Significant Components', 
                         pn.Column(query_box_deviated_genes, 
@@ -525,7 +531,15 @@ sio = StringIO()
 data_to_save.to_csv(sio)
 sio.seek(0)
 download_table_graph_button = pn.widgets.FileDownload(filename = 'samples_table.csv', button_type = 'primary', 
-                                              margin=margin_size, file = sio, label = 'Download table')
+                                              margin=margin_size, file = sio, label = 'Download table', width=140)
+
+data_to_save = pd.DataFrame({})
+sio = StringIO()
+data_to_save.to_csv(sio)
+sio.seek(0)
+download_graph_button = pn.widgets.FileDownload(filename = 'samples_table.csv', button_type = 'primary', 
+                                              margin=margin_size, file = sio, label = 'Download graph', width=140)
+
 
 # widget for the button to run the web app
 button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
@@ -542,7 +556,7 @@ the median in its batch.
 
 **Deviation**: the colorbar Deviation in the graph represents the 
 average deviation component of the samples in each cluster. 
-""")
+""", scroll = True)
 
 
 # widget to query for sample or cluster information
@@ -688,7 +702,8 @@ If you have any issue or questions, please either raise an
 how_to_use_it = pn.Column(pn.pane.Markdown(how_to_use, sizing_mode='stretch_both'),
                           sizing_mode='stretch_both', scroll = True)
 
-dataframe_and_query = pn.Column(query_dropdown, query_box, download_table_graph_button,
+dataframe_and_query = pn.Column(query_dropdown, query_box, 
+                                pn.Row(download_table_graph_button, download_graph_button, align='center'),
                                 hv.Table(pd.DataFrame({})).opts(width=300),
                                 width = 300,
                                )
