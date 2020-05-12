@@ -1,7 +1,3 @@
-from bokeh.settings import settings
-settings.resources = 'cdn'
-settings.resources = 'inline'
-
 import numpy as np
 import pandas as pd
 import os, sys
@@ -106,6 +102,42 @@ def run_simpleTTMap(dataset,
     return simple_ttmap_output(ttmap_output_rpy2, deviation_by_sample_rpy2, samples_name_rpy2, total_deviations_rpy2)
 
 
+def convert_output_to_dictionary(sttmap_output):
+    """
+    Convert the output of two tier mapper to a dictionary, so each cluster 
+    corresponds to a key in the dictionary. Each key contains the 
+    samples in the cluster and in which partition the cluster is
+    """
+    
+    tiers_ttmap = ['all', 'low_map', 'mid1_map', 'mid2_map', 'high_map']
+    
+    ttmap_clusters = {}
+
+    counter = 1
+    for number_tier, tier in enumerate(tiers_ttmap):
+        for number_cluster, cluster in enumerate(sttmap_output[tier]):
+            ttmap_clusters[counter] = [cluster, tier] 
+            counter += 1 
+
+    return ttmap_clusters
+
+def get_nodes_connected_to(base_node, ttmap_clusters):
+    """
+    Get nodes connected to the base node.
+
+    base_node : integer representing the key in the ttmap_clusters
+    """
+
+    nodes_connected_to_base = []
+    for node_index in ttmap_clusters:
+        if node_index == base_node or ttmap_clusters[node_index][1] == 'all':
+            continue
+
+        if set(ttmap_clusters[base_node][0]) & set(ttmap_clusters[node_index][0]):
+            nodes_connected_to_base.append(node_index)
+
+    return nodes_connected_to_base
+
 def get_nodes_and_edges(sttmap_output, 
                         deviation_by_sample,
                         sample_names
@@ -113,92 +145,149 @@ def get_nodes_and_edges(sttmap_output,
     
     tiers_ttmap = ['all', 'low_map', 'mid1_map', 'mid2_map', 'high_map']
 
-    # create a number list correspondence for the clusters
-    node_correspondency = {}
-    positions = {}
+    tiers_better_names = {
+                              'all':'All', 
+                          'low_map': 'Lower Quartile', 
+                         'mid1_map': '2nd Quartile', 
+                         'mid2_map': '3rd Quartile',
+                         'high_map': 'Higher Quartile'
+                        }
+
+    # define the nodes from bottom up. the base nodes contain the 
+    # clusters in the overall partition. 
+
+    ttmap_clusters = convert_output_to_dictionary(sttmap_output)
+    base_nodes = [base_node for base_node in ttmap_clusters if ttmap_clusters[base_node][1] == 'all']
+    base_nodes.sort()
+    
+    # for each base node get nodes connected to it and define their positions. 
+    xpos = 0
+    ypos_height = 3
+    ypos = {
+                 'all' : 0*ypos_height, 
+             'low_map' : 1*ypos_height,
+            'mid1_map' : 2*ypos_height,
+            'mid2_map' : 3*ypos_height, 
+            'high_map' : 4*ypos_height
+           }
+
+    # construct lists containing position of the nodes, sample names, indices, to which partition
+    # the node is in, node size, the source and target of the edges.
+
+    partitions = []
     x = []
     y = []
-    node_labels = []
-    weight_labels = []
     node_indices = []
-    node_sizes = []
+    
+    # base value to node size. to make it bigger, increase this value
     base_size_node = 30
-    clusters = {}
+    node_sizes = []
+    node_labels = []
+    mean_deviation = []
+    
     global cluster_info
     cluster_info = {}
     
+    source_edges = []
+    target_edges = []    
+    
+    # the clusters that each sample are in 
+    clusters = {}
+    
+    # the partitions the samples are in as a dictionary
+    sample_partition = {}
+
     for sample in sample_names:
         clusters[sample] = []
+        sample_partition[sample] = ""
 
-    counter = 1
-    for which_interval, tier in enumerate(tiers_ttmap):
+    for counter, base_node in enumerate(base_nodes):
+        nodes_connected_to_base = get_nodes_connected_to(base_node, ttmap_clusters)
+        for node_connected in nodes_connected_to_base:
+
+            cluster_information = ttmap_clusters[node_connected]            
+            # node indice
+            node_indices.append(node_connected)              
+
+            # x-position 
+            x.append(xpos*(counter+1))
+            xpos += 1 
         
-        # list with all clusters in the corresponding tier 
-        clusters_interval = sttmap_output[tier]
+            # y position 
+            y.append(ypos[cluster_information[1]]) 
+             
+            # in which partition this cluster is 
+            partitions.append(tiers_better_names[cluster_information[1]])
 
-        # check number of clusters in the interval
-        number_of_clusters = len(clusters_interval)
-        number_of_clusters = range(number_of_clusters)
-
-        # y position of the node 
-        y_pos = which_interval*3
-
-        node_correspondency[tier] = []
-        for which_cluster, cluster in enumerate(clusters_interval):
-
-            node_correspondency[tier].append(counter)
+            # source and target of the edges
+            source_edges.append(base_node)
+            target_edges.append(node_connected)
 
             # convert samples to string
             all_samples = ''
-            for sample_cluster in cluster:
+            for sample_cluster in cluster_information[0]:
                 corrected_cluster = sample_cluster[:sample_cluster.find('.')] 
-                clusters[corrected_cluster].append(str(counter))
+                clusters[corrected_cluster].append(str(node_connected))
+                sample_partition[corrected_cluster] = tiers_better_names[cluster_information[1]]
                 all_samples = all_samples + corrected_cluster + '\n'
-
-            # add data to the node
+                
             # names of the samples in the node
             node_labels.append(all_samples)
             # deviation by sample in the cluster
-            weight_labels.append(np.average([deviation_by_sample[sample[:sample.find('.')]] 
-                                             for sample in cluster]))
+            mean_deviation.append(np.average([deviation_by_sample[sample[:sample.find('.')]] 
+                                             for sample in cluster_information[0]]))
 
-            # x position of the node
-            x_pos = which_cluster*0.2
-            x.append(x_pos)
-            y.append(y_pos)
-
-            # node size is 60 * number of samples in the cluster
-            node_sizes.append(base_size_node * np.log(len(cluster)+1))
-            node_indices.append(counter)
+            node_sizes.append(base_size_node * np.log(len(cluster_information[0])+1))
+           
+            cluster_info[node_connected] = [cluster_information[1].split('_')[0]]
+    
+        # add information of base node to the vectors 
+        cluster_information = ttmap_clusters[base_node]            
             
-            cluster_info[counter] = [tier.split('_')[0]]
+        # node indice
+        node_indices.append(base_node)              
 
-            counter += 1
+        # x-position  
+        x.append(len(nodes_connected_to_base)/2 + counter*xpos)
+        
+        # y position 
+        y.append(ypos[cluster_information[1]]) 
+         
+        # in which partition this cluster is 
+        partitions.append(tiers_better_names[cluster_information[1]])
 
-    # get edges
-    source_edges = []
-    target_edges = []
-    for top_counter, cluster in enumerate(sttmap_output['all']):
-        # check if there is an overlap in the other intervals
-        for tier in tiers_ttmap[1:]:
-            for counter, sub_cluster in enumerate(sttmap_output[tier]):
-                if set(cluster) & set(sub_cluster):
-                    node_1 = node_correspondency['all'][top_counter]
-                    node_2 = node_correspondency[tier][counter]
-                    source_edges.append(node_1)
-                    target_edges.append(node_2)
-                    
-    node_data = pd.DataFrame(data = {'x' : x, 'y' : y, 
+        # convert samples to string
+        all_samples = ''
+        for sample_cluster in cluster_information[0]:
+            corrected_cluster = sample_cluster[:sample_cluster.find('.')] 
+            clusters[corrected_cluster].insert(0,str(base_node))
+            all_samples = all_samples + corrected_cluster + '\n'
+            
+        # names of the samples in the node
+        node_labels.append(all_samples)
+        # deviation by sample in the cluster
+        mean_deviation.append(np.average([deviation_by_sample[sample[:sample.find('.')]] 
+                                         for sample in cluster_information[0]]))
+
+        node_sizes.append(base_size_node * np.log(len(cluster_information[0])+1))
+        
+        cluster_info[base_node] = [cluster_information[1].split('_')[0]]
+ 
+
+    node_data = pd.DataFrame(data = {'x' : x, 
+                                     'y' : y, 
                                  'index' : node_indices, 
-                                 'samples' : node_labels,
-                                 'mean_deviation' : weight_labels,
-                                 'node_sizes' : node_sizes})
+                               'samples' : node_labels,
+                            'partition'  : partitions,
+                        'mean_deviation' : mean_deviation,
+                            'node_sizes' : node_sizes})
     
     node_and_edges_data = {'node_data'    : node_data, 
                            'source_edges' : source_edges,
                            'target_edges' : target_edges,
-                           'clusters'     : clusters}
-    
+                           'clusters'     : clusters,
+                       'sample_partition' : sample_partition}
+  
     return node_and_edges_data
 
 def hook_graph(plot, element):
@@ -229,7 +318,11 @@ def get_graph_from_data(node_and_edges_data):
     
     nodes = hv.Nodes(data=node_data)
     
-    tooltips = [('Samples', '@samples'), ('Mean Deviation', '@mean_deviation'), ('Index', '@index')]
+    tooltips = [('Samples', '@samples'), 
+                ('Mean Deviation', '@mean_deviation'), 
+                ('Index', '@index'),
+                ('Partition', '@partition')]
+
     hover = HoverTool(tooltips = tooltips)
     
     # add labels to nodes 
@@ -376,14 +469,19 @@ def get_ttmap_from_inputs(event):
     graph_rpy2 = get_graph_from_data(node_and_edges_data)
     
     name_clusters_by_sample = []
+    sample_partition = []
 
+ 
     for sample in sample_names:
         name_clusters_by_sample.append(', '.join(node_and_edges_data['clusters'][sample]))
+        sample_partition.append(node_and_edges_data['sample_partition'][sample])
     
     global data_table
-    data_table = pd.DataFrame(data = {'Sample' : sample_names, 
-                                  'Total_Abs_Deviation' : total_deviation,
-                                  'Clusters' : name_clusters_by_sample}
+    data_table = pd.DataFrame(data = {
+                                      'Sample' : sample_names, 
+                         'Total_Abs_Deviation' : total_deviation,
+                                    'Clusters' : name_clusters_by_sample,
+                                   'Partition' : sample_partition}
                                  )
     
     outlier_analysis = get_outlier_analysis(batches, output_directory=output_directory)
@@ -435,8 +533,10 @@ def save_to_file(df):
     download_table_graph_button = pn.widgets.FileDownload(label = 'Download table', filename = 'samples_table.csv',
                                                           button_type = 'primary',
                                                           margin=margin_size,
-                                                          file = os.path.join(output_directory, filename))
-    grid_spec[1][1][1][2] = download_table_graph_button
+                                                          file = os.path.join(output_directory, filename),
+                                                          width=140
+                                                         )
+    grid_spec[1][1][1][2][0] = download_table_graph_button
 
 
 def query_columns(event):
@@ -450,7 +550,7 @@ def query_columns(event):
     
     sub_data_table = data_table.iloc[rows_of_text] 
     save_to_file(sub_data_table)
-    grid_spec[1][1][1][3] = hv.Table(sub_data_table).opts(width=300)
+    grid_spec[1][1][1][3] = hv.Table(sub_data_table).opts(width=300, hooks=[fix_size_table])
 
 def fix_size_table(plot, element):
     
@@ -556,15 +656,15 @@ the median in its batch.
 
 **Deviation**: the colorbar Deviation in the graph represents the 
 average deviation component of the samples in each cluster. 
-""", scroll = True)
+""")
 
 
 # widget to query for sample or cluster information
-query_box = pn.widgets.TextInput(name  = 'Search by sample or cluster number', 
+query_box = pn.widgets.TextInput(name  = 'Search by sample or cluster number or partition', 
                                  value = '')
 # widget to select either sample or cluster
 query_dropdown = pn.widgets.Select(name    = 'Parameter to search in the dataframe',
-                                   options = ['Sample', 'Clusters'])
+                                   options = ['Sample', 'Clusters', 'Partition'])
 
 # widget to query by cluster
 query_box_deviated_genes = pn.widgets.TextInput(name  = 'Insert cluster index here', 
