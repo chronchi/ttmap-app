@@ -210,7 +210,7 @@ def get_nodes_and_edges(sttmap_output,
             node_indices.append(node_connected)              
 
             # x-position 
-            x.append(xpos*(counter+1))
+            x.append(xpos)
             xpos += 1 
         
             # y position 
@@ -247,8 +247,8 @@ def get_nodes_and_edges(sttmap_output,
         # node indice
         node_indices.append(base_node)              
 
-        # x-position  
-        x.append(len(nodes_connected_to_base)/2 + counter*xpos)
+        # x position. node base position is in the middle of all nodes. 
+        x.append(np.mean(list(range(xpos-len(nodes_connected_to_base), xpos))))
         
         # y position 
         y.append(ypos[cluster_information[1]]) 
@@ -270,10 +270,14 @@ def get_nodes_and_edges(sttmap_output,
                                          for sample in cluster_information[0]]))
 
         node_sizes.append(base_size_node * np.log(len(cluster_information[0])+1))
-        
+    
+        # cluster_info[base_node] is a list with a value in 'all', 'lower', 'mid1',
+        # 'mid2' or 'high'. 
         cluster_info[base_node] = [cluster_information[1].split('_')[0]]
- 
-
+        
+        # shift xpos for the next tree
+        xpos += 1
+    
     node_data = pd.DataFrame(data = {'x' : x, 
                                      'y' : y, 
                                  'index' : node_indices, 
@@ -309,13 +313,18 @@ def hook_graph(plot, element):
     
     plot.handles['plot'].sizing_mode = 'stretch_both'
     
-    
+def hook_text(plot, element):
+    plot.handles['plot'].sizing_mode = 'stretch_both'
+  
+ 
 def get_graph_from_data(node_and_edges_data):
     
     node_data    = node_and_edges_data['node_data']
     source_edges = node_and_edges_data['source_edges']
     target_edges = node_and_edges_data['target_edges']
-    
+
+    node_data['minus_mean_deviation'] = -node_data['mean_deviation']
+
     nodes = hv.Nodes(data=node_data)
     
     tooltips = [('Samples', '@samples'), 
@@ -324,7 +333,7 @@ def get_graph_from_data(node_and_edges_data):
                 ('Partition', '@partition')]
 
     hover = HoverTool(tooltips = tooltips)
-    
+   
     # add labels to nodes 
     labels = hv.Labels(nodes, ['x', 'y'], 'index')
 
@@ -337,7 +346,30 @@ def get_graph_from_data(node_and_edges_data):
                         responsive = True,
                         xaxis = None, yaxis=None)
     
-    return graph * labels
+    # add text to the right of the graph indicating the quartiles
+    xpos = np.max(node_data['x'])
+    ypos = list(set(node_data['y']))
+    ypos.sort()
+    quartile_texts = ['All', 'Lower Quartile', 
+                      '2nd Quartile', '3rd Quartile', 
+                      'Higher Quartile ']
+    labels_quartiles = hv.Labels({'x' : xpos, 
+                                  'y' : ypos, 
+                               'text' : quartile_texts
+                                 }, 
+                                 ['x','y'], 
+                                 'text')
+    
+    labels_quartiles.opts(xoffset = 1, align='start')
+
+    # TODO: append the quartile texts to the plot
+       
+    final_graph = graph * labels    
+
+    #final_graph.opts(
+    #        opts.Labels(text_color='y', cmap='BrBG', color_levels=5))
+ 
+    return final_graph
 
 def fix_x_axis(plot, element):
     
@@ -522,7 +554,7 @@ def get_ttmap_from_inputs(event):
                         pn.Column(query_box_deviated_genes, 
                                   query_genes, 
                                   download_significant_components_button,
-                                  hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
+                                  pn.Spacer(), #hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
                                   sizing_mode = 'stretch_both'))
 
     grid_spec[1][3].sizing_mode = 'stretch_both'
@@ -814,8 +846,8 @@ final_display = pn.Row(hv.Graph(()).opts(xaxis=None, yaxis=None, responsive=True
                       )
 
 significant_genes_analysis = pn.Column(query_box_deviated_genes, query_genes, download_significant_components_button,
-                                       hv.Table(pd.DataFrame({})).opts(hooks=[fix_size_table]),
-                                      sizing_mode = 'stretch_both')
+                                       pn.Spacer(),#hv.Table(pd.DataFrame({})).opts(width=5000, hooks=[fix_size_table]),
+                                       sizing_mode = 'stretch_both')
 
 final_display = pn.Tabs(('How to use ttmap', how_to_use_it),
                         ('Two-Tier Mapper', final_display),
