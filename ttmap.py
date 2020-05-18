@@ -815,14 +815,17 @@ that is in the corresponding node of the graph. Also, you can type a list of gen
 by comma, e.g., "GREB1, BRCA1". Note that the genes should be the same as in the matrix you provided
 at the beginning of the analysis.
 
-## Download of Data
+## Download Data
 ---
 
 You can download the samples table and the significant components table by clicking the respective
-buttons 'Download'. 
+buttons 'Download table'. 
 
 In every image there is floppy disk icon that you can press to save it.
  
+To download the graph as a html, click the button 'Download graph'. It will download the 
+graph and the table alongside. 
+
 ## Issues and questions 
 ---
 If you have any issue or questions, please either raise an 
@@ -846,7 +849,7 @@ final_display = pn.Row(hv.Graph(()).opts(xaxis=None, yaxis=None, responsive=True
                       )
 
 significant_genes_analysis = pn.Column(query_box_deviated_genes, query_genes, download_significant_components_button,
-                                       pn.Spacer(),#hv.Table(pd.DataFrame({})).opts(width=5000, hooks=[fix_size_table]),
+                                       pn.Spacer(),
                                        sizing_mode = 'stretch_both')
 
 final_display = pn.Tabs(('How to use ttmap', how_to_use_it),
