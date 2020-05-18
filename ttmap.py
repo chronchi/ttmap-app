@@ -1,3 +1,7 @@
+from bokeh.settings import settings
+settings.resources = 'cdn'
+settings.resources = 'inline'
+
 import numpy as np
 import pandas as pd
 import os, sys
