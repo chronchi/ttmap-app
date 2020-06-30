@@ -55,9 +55,6 @@ def run_simpleTTMap(dataset,
     with localconverter(ro.default_converter + pandas2ri.converter):
         r_dataset = ro.conversion.py2rpy(dataset)
 
-    #col_names = [col_name[1:] if 'X' == col_name[0] else col_name for col_name in list(robjects.r['colnames'](r_dataset))]
-    #r_dataset.colnames = rpy2.robjects.StrVector(col_names)
-    
     simp_ttmap_output = simpletTTMap.simple_ttmap(r_dataset,
                                                     output_directory  = output_directory,
                                                     alpha             = alpha,
@@ -766,8 +763,9 @@ Also, the matrix should be comma separated. Below is an example.
 
 "Gene2",2.1231,2.3523
 
-It is also suggested that the samples names don't start with a number or other non syntatic
-valid name as defined by R [here](https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html).
+The name of the samples should only contain alphanumeric characters (a-z, 0-9) and should not start with a number or other non syntatic
+valid name as defined by R [here](https://stat.ethz.ch/R-manual/R-devel/library/base/html/make.names.html). This is due
+to how R handle the name of the columns. 
 
 ### Batch names
 The batches need to be specified if you want to batch correct. If you have 2 batches, X and Y,
