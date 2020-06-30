@@ -1,7 +1,3 @@
-from bokeh.settings import settings
-settings.resources = 'cdn'
-settings.resources = 'inline'
-
 import numpy as np
 import pandas as pd
 import os, sys
@@ -24,9 +20,7 @@ from holoviews import opts
 
 import bokeh.models as bkm
 import bokeh.palettes as bkp
-from bokeh.models import ColumnDataSource
 from bokeh.models import HoverTool
-from bokeh.layouts import layout
 from bokeh.models import Range1d
 from holoviews.plotting.util import process_cmap
 
@@ -60,7 +54,7 @@ def run_simpleTTMap(dataset,
                                                     alpha             = alpha,
                                                     batches           = batches,
                                                     test_samples      = test_samples,
-                                                     outlier_parameter = outlier_value
+                                                    outlier_parameter = outlier_value
                                                 )
 
     py_simple_ttmap_output = dict(zip(simp_ttmap_output.names, simp_ttmap_output))
@@ -69,7 +63,6 @@ def run_simpleTTMap(dataset,
     samples_name = [sample_name[1:] if 'X' == sample_name[0] else sample_name for sample_name in samples_name_rpy2]
     samples_name_rpy2 = samples_name   
  
-
     ttmap_output_rpy2 = dict(zip(py_simple_ttmap_output['ttmap_gtlmap'].names, map(list, list(py_simple_ttmap_output['ttmap_gtlmap']))))
 
     for intervals in ttmap_output_rpy2:
@@ -465,8 +458,13 @@ def get_ttmap_from_inputs(event):
         #data = load_input.value
         # convert to pandas dataframe
         dataset = pd.read_csv(data, header=0, index_col=0)
+        grid_spec[0][-1] = pn.Column(pn.pane.Markdown("""### Errors"""), background='#f0f0f0', width=290) 
     except: 
         # change button to calculate again
+        grid_spec[0][-1] = pn.Column(pn.pane.Markdown(
+"""### Errors: 
+
+Check your dataset"""),        background='#f0f0f0', width=290)
         grid_spec[0][9] = button_to_calculate
 
     print(dataset.head())    
@@ -898,6 +896,8 @@ grid_spec = pn.Row(pn.Column(
                         pn.Spacer(height=pn_spacer),
                         pn.Column(explanation_parameters, width = width_first_column,
                                   background='#f0f0f0'),
+                        pn.Spacer(height=pn_spacer),
+                        pn.Column(pn.pane.Markdown("### Errors"), background='#f0f0f0', width = width_first_column),
                         width = 300),
                      final_display,
                      sizing_mode='stretch_both'

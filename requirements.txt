@@ -3,4 +3,4 @@ pandas
 rpy2
 holoviews
 bokeh
-panel
+panel==0.9.6
