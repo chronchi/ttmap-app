@@ -464,8 +464,9 @@ def get_ttmap_from_inputs(event):
         grid_spec[0][-1] = pn.Column(pn.pane.Markdown(
 """### Errors: 
 
-Check your dataset"""),        background='#f0f0f0', width=290)
+Check your dataset to see if it is compliant to the rules mentioned in the basic usage."""),        background='#f0f0f0', width=290)
         grid_spec[0][9] = button_to_calculate
+        raise 
 
     print(dataset.head())    
 
