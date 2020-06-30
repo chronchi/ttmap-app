@@ -424,8 +424,11 @@ def get_outlier_analysis(batches, output_directory, filename='ttmap'):
                                     str(batch) + '_na_numbers_per_row.txt')
 
         dataset = pd.read_csv(path_to_file, header=0, index_col=0, sep='\t')
-
-        dataset.columns = ['Frequency', 'Other']
+ 
+        if dataset.shape[1] == 1:
+            dataset.columns = ['Frequency']
+        else:
+            dataset.columns = ['Frequency', 'Other']
 
         frequencies, edges = np.histogram(dataset['Frequency'], 4, range=(0,1))
         
@@ -448,19 +451,25 @@ def get_outlier_analysis(batches, output_directory, filename='ttmap'):
 
 
 def get_ttmap_from_inputs(event):
-    
-    loaded_data = load_input.value 
-    # convert load input to string utf-8
-    string_load_input = str(loaded_data, 'utf-8')
-    data = StringIO(string_load_input) 
-    
-    #data = load_input.value
-    # convert to pandas dataframe
-    dataset = pd.read_csv(data, header=0, index_col=0)
-    
-    #dataset.index = list(dataset['Unnamed: 0'])
-    #dataset = dataset.drop('Unnamed: 0', axis='columns')
-    
+   
+    # change the button to in progress
+    grid_spec[0][9] = pn.widgets.Progress(name='Indeterminate Progress', active=True, width=270)
+
+    try:
+        loaded_data = load_input.value 
+        # convert load input to string utf-8
+        string_load_input = str(loaded_data, 'utf-8')
+        data = StringIO(string_load_input) 
+        
+        #data = load_input.value
+        # convert to pandas dataframe
+        dataset = pd.read_csv(data, header=0, index_col=0)
+    except: 
+        # change button to calculate again
+        grid_spec[0][9] = button_to_calculate
+
+    print(dataset.head())    
+
     with localconverter(ro.default_converter + pandas2ri.converter):
         r_dataset = ro.conversion.py2rpy(dataset)
     
@@ -480,14 +489,18 @@ def get_ttmap_from_inputs(event):
 
     global output_directory
     output_directory = tempfile.mkdtemp()
-        
-    sttmap_output = run_simpleTTMap(dataset,
+    
+    try:    
+        sttmap_output = run_simpleTTMap(dataset,
                                     alpha=alpha,
                                     batches=batches,
                                     test_samples=test_samples_names,
                                     outlier_value=outlier_value,
                                     output_directory=output_directory
                                    )
+    except:
+        grid_spec[0][9] = button_to_calculate
+
     ttmap_output = sttmap_output.ttmap_output
     deviation_by_sample = sttmap_output.deviation_by_sample
     sample_names = sttmap_output.samples_name
@@ -558,6 +571,8 @@ def get_ttmap_from_inputs(event):
                                   sizing_mode = 'stretch_both'))
 
     grid_spec[1][3].sizing_mode = 'stretch_both'
+
+    grid_spec[0][9] = button_to_calculate
 
 def save_to_file(df):
     filename = 'samples_table.csv'
@@ -674,7 +689,7 @@ download_graph_button = pn.widgets.FileDownload(filename = 'samples_table.csv', 
 
 
 # widget for the button to run the web app
-button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size)
+button_to_calculate = pn.widgets.Button(name = 'Calculate', button_type = 'primary', margin=margin_size, width=270)
 
 # widget explaining what alpha value, outlier parameter and deviation are
 explanation_parameters = pn.pane.Markdown(""" 
@@ -877,7 +892,7 @@ grid_spec = pn.Row(pn.Column(
                         pn.Column(test_samples, width=width_first_column,
                                   background='#f0f0f0'),
                         pn.Spacer(height=pn_spacer),
-                        pn.Column(button_to_calculate, width = width_first_column),
+                        pn.Column(button_to_calculate, width = 270),
                         pn.Spacer(height=pn_spacer),
                         pn.Column(explanation_parameters, width = width_first_column,
                                   background='#f0f0f0'),
